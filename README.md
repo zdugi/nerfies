@@ -229,6 +229,9 @@ If you find our work useful, please consider citing:
                and Seitz, Steven M. 
                and Martin-Brualla, Ricardo},
   title     = {Nerfies: Deformable Neural Radiance Fields},
+
+## TODO
+[] make checkpoints work again
   journal   = {ICCV},
   year      = {2021},
 }
