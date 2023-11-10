@@ -27,6 +27,7 @@ from nerfies import utils
 
 def render_image(
     state,
+    model_params,
     rays_dict,
     model_fn,
     device_count,
@@ -83,7 +84,7 @@ def render_image(
         lambda x: x[(host_id * per_host_rays):((host_id + 1) * per_host_rays)],
         chunk_rays_dict)
     chunk_rays_dict = utils.shard(chunk_rays_dict, device_count)
-    model_out = model_fn(key_0, key_1, state.optimizer.target['model'],
+    model_out = model_fn(key_0, key_1, model_params,
                          chunk_rays_dict, state.warp_extra)
     if not default_ret_key:
       ret_key = 'fine' if 'fine' in model_out else 'coarse'
@@ -92,7 +93,7 @@ def render_image(
     ret_map = jax_utils.unreplicate(model_out[ret_key])
     ret_map = jax.tree_map(lambda x: utils.unshard(x, padding), ret_map)
     ret_maps.append(ret_map)
-  ret_map = jax.tree_multimap(lambda *x: jnp.concatenate(x, axis=0), *ret_maps)
+  ret_map = jax.tree_map(lambda *x: jnp.concatenate(x, axis=0), *ret_maps)
   logging.info('Rendering took %.04s', time.time() - start_time)
   out = {}
   for key, value in ret_map.items():
