@@ -1,3 +1,4 @@
+# full training
 # Copyright 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +21,7 @@ from typing import Dict
 
 from absl import logging
 from flax import struct
-from flax.training import checkpoints
+#from flax.training import checkpoints
 import jax
 from jax import lax
 from jax import numpy as jnp
@@ -30,6 +31,8 @@ from jax import vmap
 from nerfies import model_utils
 from nerfies import models
 from nerfies import utils
+
+import optax
 
 
 @struct.dataclass
@@ -63,7 +66,7 @@ def nearest_rotation_svd(matrix, eps=1e-6):
   # in which case the last diagonal of M will be -1.
   det = jnp.linalg.det(u @ vh)
   m = jnp.stack([jnp.ones_like(det), jnp.ones_like(det), det], axis=-1)
-  m = jnp.diag(m)
+  m = jnp.duse_elastic_lossiag(m)
   r = u @ m @ vh
   return r
 
@@ -138,6 +141,9 @@ def compute_background_loss(
 def train_step(model: models.NerfModel,
                rng_key: Callable[[int], jnp.ndarray],
                state,
+               #model_params,
+               #optimizer,
+               params, opt_state,
                batch: Dict[str, Any],
                scalar_params: ScalarParams,
                use_elastic_loss: bool = False,
@@ -260,12 +266,26 @@ def train_step(model: models.NerfModel,
 
     return sum(losses.values()), stats
 
-  optimizer = state.optimizer
+  # opt_state = state.opt_state
+  # grad_fn = jax.value_and_grad(_loss_fn, has_aux=True)
+  # (_, stats), grad = grad_fn(optimizer.target)
+  # grad = jax.lax.pmean(grad, axis_name='batch')
+  # stats = jax.lax.pmean(stats, axis_name='batch')
+  # new_optimizer = optimizer.apply_gradient(
+  #     grad, learning_rate=scalar_params.learning_rate)
+  # new_state = state.replace(optimizer=new_optimizer)
+
+  #opt_state = state.opt_state
+  # wtf: has_aux
   grad_fn = jax.value_and_grad(_loss_fn, has_aux=True)
-  (_, stats), grad = grad_fn(optimizer.target)
-  grad = jax.lax.pmean(grad, axis_name='batch')
+  (_, stats), grads = grad_fn(params)
+  grads = jax.lax.pmean(grads, axis_name='batch')
   stats = jax.lax.pmean(stats, axis_name='batch')
-  new_optimizer = optimizer.apply_gradient(
-      grad, learning_rate=scalar_params.learning_rate)
-  new_state = state.replace(optimizer=new_optimizer)
-  return new_state, stats, rng_key
+  #updates, new_opt_state = optimizer.update(grad, opt_state)
+  # model_params['params'] = optax.apply_updates(model_params['params'], updates)
+  # learning_rate=scalar_params.learning_rate
+  #new_state = state.replace(opt_state=new_opt_state)
+
+  # return params, opt_state
+
+  return state, stats, rng_key, grads
