@@ -15,16 +15,18 @@
 """Helper functions/classes for model definition."""
 
 from flax import linen as nn
-from flax import optim
+# from flax import optim
+import optax
 from flax import struct
 from jax import lax
 from jax import random
 import jax.numpy as jnp
+from typing import Any, Optional
 
 
 @struct.dataclass
 class TrainState:
-  optimizer: optim.Optimizer
+  opt_state: Optional[Any]
   warp_alpha: jnp.ndarray = 0.0
   time_alpha: jnp.ndarray = 0.0
 
@@ -104,7 +106,7 @@ def volumetric_rendering(rgb,
   last_sample_z = 1e10 if sample_at_infinity else 1e-19
   dists = jnp.concatenate([
       z_vals[..., 1:] - z_vals[..., :-1],
-      jnp.broadcast_to([last_sample_z], z_vals[..., :1].shape)
+      jnp.broadcast_to(jnp.array(last_sample_z), z_vals[..., :1].shape)
   ], -1)
   dists = dists * jnp.linalg.norm(dirs[..., None, :], axis=-1)
   alpha = 1.0 - jnp.exp(-sigma * dists)
